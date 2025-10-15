@@ -43,9 +43,10 @@ type FormData = z.infer<typeof formSchema>;
 interface LeadModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCloseWithoutSubmit?: () => void;
 }
 
-const LeadModal = ({ isOpen, onClose }: LeadModalProps) => {
+const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -64,6 +65,67 @@ const LeadModal = ({ isOpen, onClose }: LeadModalProps) => {
   });
 
   const consent = watch("consent");
+
+  const splitFullName = (fullName: string): { nome: string; cognome: string } => {
+    const trimmed = fullName.trim().replace(/\s+/g, " ");
+    const parts = trimmed.split(" ");
+    
+    if (parts.length === 0 || (parts.length === 1 && parts[0] === "")) {
+      return { nome: "", cognome: "" };
+    }
+    
+    if (parts.length === 1) {
+      return { nome: parts[0], cognome: "" };
+    }
+    
+    const cognome = parts[parts.length - 1];
+    const nome = parts.slice(0, -1).join(" ");
+    return { nome, cognome };
+  };
+
+  const sendToGoogleSheets = async (payload: any, retryCount = 0): Promise<boolean> => {
+    const webhookUrl = import.meta.env.VITE_SHEETS_WEBHOOK_URL;
+    
+    if (!webhookUrl) {
+      console.warn("Google Sheets webhook URL non configurato");
+      return false;
+    }
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`Tentativo ${retryCount + 1} fallito:`, error);
+      
+      // Retry with exponential backoff (max 3 attempts)
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return sendToGoogleSheets(payload, retryCount + 1);
+      }
+      
+      // Track error in dataLayer after all retries failed
+      if ((window as any).dataLayer) {
+        (window as any).dataLayer.push({
+          event: "sheets_sync_error",
+          error_message: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+      
+      return false;
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     // Check honeypot
@@ -88,72 +150,45 @@ const LeadModal = ({ isOpen, onClose }: LeadModalProps) => {
 
     setIsSubmitting(true);
 
-    try {
-      const webhookUrl = import.meta.env.VITE_SHEETS_WEBHOOK_URL;
+    // Split full name into nome and cognome
+    const { nome, cognome } = splitFullName(data.name);
 
-      if (!webhookUrl) {
-        throw new Error("Webhook URL non configurato");
-      }
+    // Prepare payload for Google Sheets
+    const payload = {
+      nome,
+      cognome,
+      telefono: data.phone,
+      email: data.email,
+    };
 
-      // Prepare payload
-      const payload = {
-        name: data.name,
-        phone: data.phone,
-        email: data.email,
-        consent_marketing: true,
-        source_campaign: "ads_monaco_2026",
-        timestamp: new Date().toISOString(),
-        user_agent: navigator.userAgent,
-      };
+    // Show success immediately (non-blocking)
+    setIsSuccess(true);
+    toast.success("Dati inviati con successo!");
 
-      // Send to Google Sheets webhook
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    // Track successful submission
+    recentAttempts.push(now);
+    localStorage.setItem("submitAttempts", JSON.stringify(recentAttempts));
+
+    // Track in dataLayer
+    if ((window as any).dataLayer) {
+      (window as any).dataLayer.push({
+        event: "lead_submit_success",
+        lead_email: data.email,
       });
-
-      if (!response.ok) {
-        throw new Error("Errore nell'invio dei dati");
-      }
-
-      // Track successful submission
-      recentAttempts.push(now);
-      localStorage.setItem("submitAttempts", JSON.stringify(recentAttempts));
-
-      // Track in dataLayer
-      if ((window as any).dataLayer) {
-        (window as any).dataLayer.push({
-          event: "lead_submit_success",
-          lead_email: data.email,
-        });
-      }
-
-      setIsSuccess(true);
-      toast.success("Dati inviati con successo!");
-    } catch (error) {
-      console.error("Error submitting lead:", error);
-      
-      // Track error in dataLayer
-      if ((window as any).dataLayer) {
-        (window as any).dataLayer.push({
-          event: "sheets_sync_error",
-          error_message: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-
-      // Still show success to user (as per requirements)
-      setIsSuccess(true);
-      toast.success("Dati inviati con successo!");
-    } finally {
-      setIsSubmitting(false);
     }
+
+    setIsSubmitting(false);
+
+    // Send to Google Sheets in background
+    sendToGoogleSheets(payload);
   };
 
   const handleClose = () => {
     if (!isSubmitting) {
+      // If closing without success (user cancelled), reset scratch card
+      if (!isSuccess && onCloseWithoutSubmit) {
+        onCloseWithoutSubmit();
+      }
       onClose();
       setTimeout(() => setIsSuccess(false), 300);
     }

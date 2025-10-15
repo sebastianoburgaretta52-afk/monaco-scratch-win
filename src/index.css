@@ -119,3 +119,41 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Scratch card gold styling with shine effect */
+.scratch-card-container {
+  position: relative;
+  box-shadow: 
+    inset 0 0 0 3px #FFE9A3,
+    0 0 0 4px #8A6B00,
+    var(--shadow-premium);
+}
+
+.scratch-card-container::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  transform: translateX(-100%) rotate(45deg);
+  animation: shine 7s infinite;
+  pointer-events: none;
+}
+
+@keyframes shine {
+  0%, 90% {
+    transform: translateX(-100%) rotate(45deg);
+  }
+  95%, 100% {
+    transform: translateX(100%) rotate(45deg);
+  }
+}

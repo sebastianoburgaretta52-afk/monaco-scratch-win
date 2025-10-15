@@ -10,13 +10,16 @@ interface HeroProps {
 const Hero = ({ onScrollToScratch }: HeroProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Gradient background */}
+      {/* Background image */}
       <div 
-        className="absolute inset-0 bg-[image:var(--gradient-hero)]"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: "var(--gradient-hero)",
+          backgroundImage: "url(/images/hero.jpg)",
         }}
       />
+      
+      {/* Blue overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0C2055]/60 to-[#0C2055]/35" />
       
       {/* Animated circles */}
       <div className="absolute top-20 right-20 w-64 h-64 bg-accent/10 rounded-full blur-3xl animate-pulse" />

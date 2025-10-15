@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { Sparkles } from "lucide-react";
 
 interface ScratchCardProps {
@@ -6,55 +6,103 @@ interface ScratchCardProps {
   threshold?: number;
 }
 
-const ScratchCard = ({ onReveal, threshold = 60 }: ScratchCardProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isScratching, setIsScratching] = useState(false);
-  const [hasRevealed, setHasRevealed] = useState(false);
-  const [scratchedPercentage, setScratchedPercentage] = useState(0);
+export interface ScratchCardRef {
+  resetScratch: () => void;
+}
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+const ScratchCard = forwardRef<ScratchCardRef, ScratchCardProps>(
+  ({ onReveal, threshold = 60 }, ref) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [isScratching, setIsScratching] = useState(false);
+    const [hasRevealed, setHasRevealed] = useState(false);
+    const [scratchedPercentage, setScratchedPercentage] = useState(0);
 
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return;
+    const drawOverlay = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    // Set canvas size
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
 
-    // Draw scratch overlay with gradient
-    const gradient = ctx.createLinearGradient(0, 0, rect.width, rect.height);
-    gradient.addColorStop(0, "#C0C0C0");
-    gradient.addColorStop(0.5, "#E8E8E8");
-    gradient.addColorStop(1, "#C0C0C0");
-    
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, rect.width, rect.height);
+      const rect = canvas.getBoundingClientRect();
 
-    // Add texture
-    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-    for (let i = 0; i < 100; i++) {
-      ctx.fillRect(
-        Math.random() * rect.width,
-        Math.random() * rect.height,
-        Math.random() * 3,
-        Math.random() * 3
-      );
-    }
+      // Draw gold gradient overlay
+      const gradient = ctx.createLinearGradient(0, 0, rect.width, rect.height);
+      gradient.addColorStop(0, "#B8860B");
+      gradient.addColorStop(0.5, "#FFD700");
+      gradient.addColorStop(1, "#E6C200");
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, rect.width, rect.height);
 
-    // Add text
-    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-    ctx.font = "bold 24px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("GRATTA QUI", rect.width / 2, rect.height / 2);
-  }, []);
+      // Add noise texture for metallic effect
+      ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+      for (let i = 0; i < 150; i++) {
+        ctx.fillRect(
+          Math.random() * rect.width,
+          Math.random() * rect.height,
+          Math.random() * 2,
+          Math.random() * 2
+        );
+      }
+
+      // Add darker noise
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      for (let i = 0; i < 100; i++) {
+        ctx.fillRect(
+          Math.random() * rect.width,
+          Math.random() * rect.height,
+          Math.random() * 2,
+          Math.random() * 2
+        );
+      }
+
+      // Add text
+      ctx.fillStyle = "rgba(139, 107, 0, 0.4)";
+      ctx.font = "bold 24px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("GRATTA QUI", rect.width / 2, rect.height / 2);
+    };
+
+    const resetScratch = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+
+      // Reset state
+      setHasRevealed(false);
+      setScratchedPercentage(0);
+      setIsScratching(false);
+
+      // Redraw overlay
+      drawOverlay();
+    };
+
+    useImperativeHandle(ref, () => ({
+      resetScratch,
+    }));
+
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+
+      // Set canvas size
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+
+      drawOverlay();
+    }, []);
 
   const scratch = (x: number, y: number) => {
     const canvas = canvasRef.current;
@@ -135,7 +183,7 @@ const ScratchCard = ({ onReveal, threshold = 60 }: ScratchCardProps) => {
 
   return (
     <div className="relative w-full max-w-2xl mx-auto">
-      <div className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-[var(--shadow-premium)] border-4 border-accent/20">
+      <div className="scratch-card-container relative aspect-[16/9] rounded-2xl overflow-hidden shadow-[var(--shadow-premium)]">
         {/* Hidden message */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/90 flex items-center justify-center p-8">
           <div className="text-center space-y-4">
@@ -185,6 +233,8 @@ const ScratchCard = ({ onReveal, threshold = 60 }: ScratchCardProps) => {
       )}
     </div>
   );
-};
+});
+
+ScratchCard.displayName = "ScratchCard";
 
 export default ScratchCard;

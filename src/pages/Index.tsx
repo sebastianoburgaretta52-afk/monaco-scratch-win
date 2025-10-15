@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import Hero from "@/components/Hero";
-import ScratchCard from "@/components/ScratchCard";
+import ScratchCard, { ScratchCardRef } from "@/components/ScratchCard";
 import LeadModal from "@/components/LeadModal";
 import HowItWorks from "@/components/HowItWorks";
 import FAQ from "@/components/FAQ";
@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 
 const Index = () => {
   const scratchRef = useRef<HTMLDivElement>(null);
+  const scratchCardRef = useRef<ScratchCardRef>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -28,6 +29,10 @@ const Index = () => {
     setIsModalOpen(true);
   };
 
+  const handleCloseWithoutSubmit = () => {
+    scratchCardRef.current?.resetScratch();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Hero onScrollToScratch={scrollToScratch} />
@@ -42,7 +47,7 @@ const Index = () => {
               Gratta la card sottostante per sbloccare il form di partecipazione
             </p>
           </div>
-          <ScratchCard onReveal={handleReveal} />
+          <ScratchCard ref={scratchCardRef} onReveal={handleReveal} />
         </div>
       </section>
 
@@ -50,7 +55,11 @@ const Index = () => {
       <FAQ />
       <Footer />
 
-      <LeadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <LeadModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        onCloseWithoutSubmit={handleCloseWithoutSubmit}
+      />
     </div>
   );
 };
