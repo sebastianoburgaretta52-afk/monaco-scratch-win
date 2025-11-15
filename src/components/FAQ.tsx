@@ -14,7 +14,7 @@ const faqs = [
   {
     question: "Quando avverrà l'estrazione?",
     answer:
-      "L'estrazione si terrà il 26 ottobre 2025. I vincitori saranno contattati via telefono e/o email entro 7 giorni lavorativi dall'estrazione.",
+      "L'estrazione si terrà il 01 Febbraio 2026. I vincitori saranno contattati via telefono e/o email entro 7 giorni lavorativi dall'estrazione.",
   },
   {
     question: "Qual è il valore del premio?",

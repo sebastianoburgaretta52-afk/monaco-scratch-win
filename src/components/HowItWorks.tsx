@@ -4,17 +4,20 @@ const steps = [
   {
     icon: MousePointer2,
     title: "1. Gratta",
-    description: "Gratta la card virtuale per sbloccare l'accesso al form di partecipazione",
+    description:
+      "Gratta la card virtuale per sbloccare l'accesso al form di partecipazione",
   },
   {
     icon: FileText,
     title: "2. Compila",
-    description: "Inserisci i tuoi dati: nome, telefono ed email per partecipare all'estrazione",
+    description:
+      "Inserisci i tuoi dati: nome, telefono ed email per partecipare all'estrazione",
   },
   {
     icon: Trophy,
     title: "3. Vinci",
-    description: "Estrazione il 26/10/2025. I vincitori verranno contattati per ricevere tutti i dettagli",
+    description:
+      "Estrazione il 01/02/2026. I vincitori verranno contattati per ricevere tutti i dettagli",
   },
 ];
 

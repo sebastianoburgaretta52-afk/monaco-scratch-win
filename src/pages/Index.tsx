@@ -12,9 +12,8 @@ const Index = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    // Track page view
-    if ((window as any).dataLayer) {
-      (window as any).dataLayer.push({
+    if (window.dataLayer) {
+      window.dataLayer.push({
         event: "view_landing",
         page_title: "Viaggio Business Monaco 2026",
       });
@@ -33,10 +32,15 @@ const Index = () => {
     scratchCardRef.current?.resetScratch();
   };
 
+  const handleSuccessfulSubmit = () => {
+    // Ricontrolla lo stato di submission per mostrare "Richiesta già inviata"
+    scratchCardRef.current?.checkSubmissionStatus();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Hero onScrollToScratch={scrollToScratch} />
-      
+
       <section ref={scratchRef} className="py-20 bg-background">
         <div className="container px-4">
           <div className="max-w-4xl mx-auto text-center mb-12">
@@ -55,10 +59,11 @@ const Index = () => {
       <FAQ />
       <Footer />
 
-      <LeadModal 
-        isOpen={isModalOpen} 
+      <LeadModal
+        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCloseWithoutSubmit={handleCloseWithoutSubmit}
+        onSuccessfulSubmit={handleSuccessfulSubmit}
       />
     </div>
   );

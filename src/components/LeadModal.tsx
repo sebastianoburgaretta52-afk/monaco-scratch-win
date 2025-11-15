@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,21 +21,26 @@ const formSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(2, "Il nome deve contenere almeno 2 caratteri")
-    .max(100, "Il nome deve contenere massimo 100 caratteri"),
+    .regex(
+      /^[A-Za-zÀ-ÖØ-öø-ÿ]{2,}(?:\s[A-Za-zÀ-ÖØ-öø-ÿ]{2,})+$/,
+      "Nome e Cognome non validi"
+    ),
   phone: z
     .string()
     .trim()
-    .regex(/^[0-9\s+()-]{8,20}$/, "Inserisci un numero di telefono valido"),
+    .regex(/^\d{10}$/, "Inserisci un numero di telefono valido"),
   email: z
     .string()
     .trim()
     .email("Inserisci un indirizzo email valido")
-    .max(255, "L'email deve contenere massimo 255 caratteri"),
+    .regex(
+      /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/,
+      "Inserisci un indirizzo email valido"
+    ),
   consent: z.boolean().refine((val) => val === true, {
     message: "Devi accettare l'informativa privacy e i termini",
   }),
-  honeypot: z.string().max(0), // Anti-spam honeypot
+  honeypot: z.string().max(0),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -44,11 +49,18 @@ interface LeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCloseWithoutSubmit?: () => void;
+  onSuccessfulSubmit?: () => void;
 }
 
-const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) => {
+const LeadModal = ({
+  isOpen,
+  onClose,
+  onCloseWithoutSubmit,
+  onSuccessfulSubmit,
+}: LeadModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
 
   const {
     register,
@@ -56,6 +68,7 @@ const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) =>
     formState: { errors },
     setValue,
     watch,
+    reset,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -66,150 +79,256 @@ const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) =>
 
   const consent = watch("consent");
 
-  const splitFullName = (fullName: string): { nome: string; cognome: string } => {
+  // Controllo localstorage
+  useEffect(() => {
+    const submitted = localStorage.getItem("leadSubmitted");
+    if (submitted === "true") {
+      setAlreadySubmitted(true);
+      setIsSuccess(true);
+    }
+  }, [isOpen]);
+
+  const splitFullName = (
+    fullName: string
+  ): { nome: string; cognome: string } => {
     const trimmed = fullName.trim().replace(/\s+/g, " ");
     const parts = trimmed.split(" ");
-    
+
     if (parts.length === 0 || (parts.length === 1 && parts[0] === "")) {
       return { nome: "", cognome: "" };
     }
-    
+
     if (parts.length === 1) {
       return { nome: parts[0], cognome: "" };
     }
-    
+
     const cognome = parts[parts.length - 1];
     const nome = parts.slice(0, -1).join(" ");
     return { nome, cognome };
   };
 
-  const sendToGoogleSheets = async (payload: any, retryCount = 0): Promise<boolean> => {
+  const checkEmailExists = async (email: string): Promise<boolean> => {
     const webhookUrl = import.meta.env.VITE_SHEETS_WEBHOOK_URL;
-    
+
     if (!webhookUrl) {
       console.warn("Google Sheets webhook URL non configurato");
       return false;
     }
 
     try {
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      const url = `${webhookUrl}?action=checkEmail&email=${encodeURIComponent(
+        email.toLowerCase()
+      )}`;
+      const response = await fetch(url, {
+        method: "GET",
       });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      return true;
+      const result = await response.json();
+      return result.exists || false;
     } catch (error) {
-      console.error(`Tentativo ${retryCount + 1} fallito:`, error);
-      
-      // Retry with exponential backoff (max 3 attempts)
-      if (retryCount < 2) {
-        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return sendToGoogleSheets(payload, retryCount + 1);
-      }
-      
-      // Track error in dataLayer after all retries failed
-      if ((window as any).dataLayer) {
-        (window as any).dataLayer.push({
-          event: "sheets_sync_error",
-          error_message: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-      
+      console.error("Errore nel controllo email:", error);
       return false;
     }
   };
 
+  const sendToGoogleSheets = async (
+    payload: {
+      nome: string;
+      cognome: string;
+      telefono: string;
+      email: string;
+    },
+    retryCount = 0
+  ): Promise<{ success: boolean; error?: string }> => {
+    const webhookUrl = import.meta.env.VITE_SHEETS_WEBHOOK_URL;
+
+    if (!webhookUrl) {
+      console.warn("Google Sheets webhook URL non configurato");
+      return { success: false, error: "URL non configurato" };
+    }
+
+    console.log("Invio a Google Sheets:", payload);
+
+    try {
+      const params = new URLSearchParams({
+        action: "addLead",
+        nome: payload.nome,
+        cognome: payload.cognome,
+        email: payload.email,
+        telefono: payload.telefono,
+      });
+
+      const url = `${webhookUrl}?${params.toString()}`;
+      const response = await fetch(url, {
+        method: "GET",
+      });
+
+      console.log("Response status:", response.status);
+
+      const result = await response.json();
+      console.log("Response result:", result);
+
+      if (!result.success) {
+        if (result.error === "EMAIL_EXISTS") {
+          return { success: false, error: "EMAIL_EXISTS" };
+        }
+        throw new Error(result.error || "Errore sconosciuto");
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error(`Tentativo ${retryCount + 1} fallito:`, error);
+
+      // Retry with exponential backoff (max 2 attempts)
+      if (retryCount < 1) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return sendToGoogleSheets(payload, retryCount + 1);
+      }
+
+      if (window.dataLayer) {
+        window.dataLayer.push({
+          event: "sheets_sync_error",
+          error_message:
+            error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Errore sconosciuto",
+      };
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
-    // Check honeypot
     if (data.honeypot) {
       console.warn("Spam detected");
       return;
     }
 
-    // Rate limiting check (client-side)
-    const submitAttempts = JSON.parse(
-      localStorage.getItem("submitAttempts") || "[]"
-    );
-    const now = Date.now();
-    const recentAttempts = submitAttempts.filter(
-      (timestamp: number) => now - timestamp < 3600000 // 1 hour
-    );
-
-    if (recentAttempts.length >= 3) {
-      toast.error("Hai raggiunto il limite di tentativi. Riprova più tardi.");
+    // Controllo se ha già mandato richiesta
+    if (localStorage.getItem("leadSubmitted") === "true") {
+      toast.error("Hai già inviato la tua richiesta");
       return;
     }
 
     setIsSubmitting(true);
 
-    // Split full name into nome and cognome
-    const { nome, cognome } = splitFullName(data.name);
+    try {
+      // Check se mail esiste già in Google Sheet
+      const emailExists = await checkEmailExists(data.email);
 
-    // Prepare payload for Google Sheets
-    const payload = {
-      nome,
-      cognome,
-      telefono: data.phone,
-      email: data.email,
-    };
+      if (emailExists) {
+        toast.error("Questa email è già stata registrata");
+        setIsSubmitting(false);
 
-    // Show success immediately (non-blocking)
-    setIsSuccess(true);
-    toast.success("Dati inviati con successo!");
+        if (window.dataLayer) {
+          window.dataLayer.push({
+            event: "lead_duplicate_email",
+            lead_email: data.email,
+          });
+        }
+        return;
+      }
 
-    // Track successful submission
-    recentAttempts.push(now);
-    localStorage.setItem("submitAttempts", JSON.stringify(recentAttempts));
+      const { nome, cognome } = splitFullName(data.name);
 
-    // Track in dataLayer
-    if ((window as any).dataLayer) {
-      (window as any).dataLayer.push({
-        event: "lead_submit_success",
-        lead_email: data.email,
-      });
+      const payload = {
+        nome,
+        cognome,
+        telefono: data.phone,
+        email: data.email,
+      };
+
+      // Mando a Google Sheets
+      const result = await sendToGoogleSheets(payload);
+
+      if (!result.success) {
+        if (result.error === "EMAIL_EXISTS") {
+          toast.error("Questa email è già stata registrata");
+        } else {
+          toast.error("Errore durante l'invio. Riprova più tardi.");
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Successo
+      setIsSuccess(true);
+      localStorage.setItem("leadSubmitted", "true");
+      localStorage.setItem("leadEmail", data.email);
+      toast.success("Dati inviati con successo!");
+
+      if (window.dataLayer) {
+        window.dataLayer.push({
+          event: "lead_submit_success",
+          lead_email: data.email,
+        });
+      }
+    } catch (error) {
+      console.error("Errore nell'invio:", error);
+      toast.error("Errore durante l'invio. Riprova più tardi.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
-
-    // Send to Google Sheets in background
-    sendToGoogleSheets(payload);
   };
 
   const handleClose = () => {
     if (!isSubmitting) {
-      // If closing without success (user cancelled), reset scratch card
       if (!isSuccess && onCloseWithoutSubmit) {
         onCloseWithoutSubmit();
       }
+    }
+  };
+
+  const handleRestart = () => {
+    // Se l'invio è andato a buon fine, non resettare ma solo chiudere la modale
+    if (isSuccess) {
+      // Notifica il componente padre che la submission è avvenuta
+      if (onSuccessfulSubmit) {
+        onSuccessfulSubmit();
+      }
+      // Chiudi la modale
       onClose();
-      setTimeout(() => setIsSuccess(false), 300);
+    } else {
+      // Se NON è andato a buon fine (utente ha chiuso senza inviare), resetta tutto
+      localStorage.removeItem("leadSubmitted");
+      localStorage.removeItem("leadEmail");
+      setIsSuccess(false);
+      setAlreadySubmitted(false);
+      reset();
+
+      if (onCloseWithoutSubmit) {
+        onCloseWithoutSubmit();
+      }
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
-        {isSuccess ? (
+        {isSuccess || alreadySubmitted ? (
           <div className="text-center py-8 space-y-6">
             <CheckCircle2 className="w-20 h-20 mx-auto text-accent" />
             <DialogHeader>
               <DialogTitle className="text-3xl">
-                Grazie! Ti contatteremo a breve
+                {alreadySubmitted
+                  ? "Richiesta già inviata!"
+                  : "Grazie! Ti contatteremo a breve"}
               </DialogTitle>
               <DialogDescription className="text-base mt-4">
-                Riceverai tutte le informazioni e come si agirà per la partenza.
+                {alreadySubmitted
+                  ? "Hai già completato la registrazione. Riceverai presto tutte le informazioni."
+                  : "Riceverai tutte le informazioni e come si agirà per la partenza."}
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-3">
-              <Button onClick={handleClose} size="lg" className="w-full">
+              <Button onClick={handleRestart} size="lg" className="w-full">
                 Torna all'inizio
               </Button>
             </div>
@@ -226,7 +345,6 @@ const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) =>
             </DialogHeader>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Honeypot field - hidden from users */}
               <input
                 type="text"
                 {...register("honeypot")}
@@ -249,7 +367,9 @@ const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) =>
                   disabled={isSubmitting}
                 />
                 {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
 
@@ -259,11 +379,13 @@ const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) =>
                   id="phone"
                   type="tel"
                   {...register("phone")}
-                  placeholder="+39 123 456 7890"
+                  placeholder="3354567890"
                   disabled={isSubmitting}
                 />
                 {errors.phone && (
-                  <p className="text-sm text-destructive">{errors.phone.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.phone.message}
+                  </p>
                 )}
               </div>
 
@@ -277,7 +399,9 @@ const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) =>
                   disabled={isSubmitting}
                 />
                 {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.email.message}
+                  </p>
                 )}
               </div>
 
@@ -297,7 +421,7 @@ const LeadModal = ({ isOpen, onClose, onCloseWithoutSubmit }: LeadModalProps) =>
                     htmlFor="consent"
                     className="text-sm font-medium leading-relaxed cursor-pointer"
                   >
-                    Ho letto l'{" "}
+                    Ho letto l'
                     <Link
                       to="/privacy"
                       className="text-accent hover:underline"
