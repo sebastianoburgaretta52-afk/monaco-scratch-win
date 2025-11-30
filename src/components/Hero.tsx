@@ -45,7 +45,7 @@ const Hero = ({ onScrollToScratch }: HeroProps) => {
           <div className="mb-8">
             <Badge
               variant="secondary"
-              className="px-4 py-2 text-sm bg-primary/50 hover:bg-primary/50 text-primary-foreground border-primary/60"
+              className="mx-10 sm:mx-0 px-2 sm:px-4 py-2 text-sm bg-primary/50 hover:bg-primary/50 text-primary-foreground border-primary/60"
             >
               Solo un accesso disponibile per ciascun partecipante
             </Badge>
