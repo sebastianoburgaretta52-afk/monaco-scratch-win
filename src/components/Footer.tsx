@@ -9,7 +9,7 @@ const Footer = () => {
           <div className="bg-primary-foreground/10 rounded-lg p-6 mb-8">
             <p className="text-sm leading-relaxed text-primary-foreground/90">
               <strong>Disclaimer:</strong> Nessun acquisto necessario.
-              Iniziativa valida dal 15/11/2025 al 31/01/2026. Estrazione
+              Iniziativa valida dal 01/12/2025 al 31/01/2026. Estrazione
               prevista per il 01/02/2026. Per il regolamento completo e
               l'informativa privacy, consulta i link indicati di seguito. "Rush
               to Munich 2026" soggetto a disponibilità.

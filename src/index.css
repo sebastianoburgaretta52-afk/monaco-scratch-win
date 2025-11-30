@@ -39,14 +39,26 @@ All colors MUST be HSL.
     --radius: 0.75rem;
 
     /* Premium gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(231, 63%, 30%) 0%, hsl(231, 63%, 20%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(43, 63%, 53%) 0%, hsl(43, 80%, 60%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0, 0%, 100%) 0%, hsl(220, 13%, 98%) 100%);
-    
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(231, 63%, 30%) 0%,
+      hsl(231, 63%, 20%) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(43, 63%, 53%) 0%,
+      hsl(43, 80%, 60%) 100%
+    );
+    --gradient-card: linear-gradient(
+      180deg,
+      hsl(0, 0%, 100%) 0%,
+      hsl(220, 13%, 98%) 100%
+    );
+
     /* Shadows */
     --shadow-premium: 0 10px 40px -10px hsl(231 63% 30% / 0.3);
     --shadow-glow: 0 0 30px hsl(43 63% 53% / 0.4);
-    
+
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -95,9 +107,17 @@ All colors MUST be HSL.
     --border: 231 40% 20%;
     --input: 231 40% 20%;
     --ring: 43 63% 53%;
-    
-    --gradient-hero: linear-gradient(135deg, hsl(231, 63%, 12%) 0%, hsl(231, 63%, 8%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(43, 63%, 53%) 0%, hsl(43, 80%, 60%) 100%);
+
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(231, 63%, 12%) 0%,
+      hsl(231, 63%, 8%) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(43, 63%, 53%) 0%,
+      hsl(43, 80%, 60%) 100%
+    );
     --shadow-premium: 0 10px 40px -10px hsl(43 63% 53% / 0.3);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -120,17 +140,18 @@ All colors MUST be HSL.
   }
 }
 
+.text-shadow-lg {
+  text-shadow: 0 0px 20px rgb(0, 0, 0);
+}
+
 /* Scratch card gold styling with shine effect */
 .scratch-card-container {
   position: relative;
-  box-shadow: 
-    inset 0 0 0 3px #FFE9A3,
-    0 0 0 4px #8A6B00,
-    var(--shadow-premium);
+  box-shadow: inset 0 0 0 3px #ffe9a3, 0 0 0 4px #8a6b00, var(--shadow-premium);
 }
 
 .scratch-card-container::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
@@ -150,10 +171,12 @@ All colors MUST be HSL.
 }
 
 @keyframes shine {
-  0%, 90% {
+  0%,
+  90% {
     transform: translateX(-100%) rotate(45deg);
   }
-  95%, 100% {
+  95%,
+  100% {
     transform: translateX(100%) rotate(45deg);
   }
 }

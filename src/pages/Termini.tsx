@@ -39,7 +39,7 @@ const Termini = () => {
               2. Durata della Promozione
             </h2>
             <p>
-              <strong>Inizio</strong>: 16 Novembre 2025, ore 00:00 (fuso orario
+              <strong>Inizio</strong>: 01 Dicembre 2025, ore 00:00 (fuso orario
               Europe/Rome)
               <br />
               <strong>Fine</strong>: 31 Gennaio 2026, ore 23:59 (fuso orario
@@ -299,7 +299,7 @@ const Termini = () => {
           </section>
 
           <p className="text-muted-foreground text-sm mt-4">
-            <small mb-0>Ultimo aggiornamento: 13/11/2025</small> <br />
+            <small mb-0>Ultimo aggiornamento: 30/11/2025</small> <br />
           </p>
         </div>
       </div>

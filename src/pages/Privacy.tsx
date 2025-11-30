@@ -341,7 +341,7 @@ const Privacy = () => {
           </section>
 
           <p className="text-muted-foreground text-sm mt-4">
-            <small mb-0>Ultimo aggiornamento: 13/11/2025</small> <br />
+            <small mb-0>Ultimo aggiornamento: 30/11/2025</small> <br />
           </p>
         </div>
       </div>
